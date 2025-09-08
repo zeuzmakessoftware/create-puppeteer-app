@@ -16,6 +16,7 @@ import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
 import { join, basename, resolve } from "path";
 import { spawn } from "child_process";
+import { createInterface } from "readline";
 
 const args = process.argv.slice(2);
 
@@ -36,8 +37,8 @@ const pmExplicit =
   getFlag("--use-npm")  ? "npm"  :
   getFlag("--use-yarn") ? "yarn" : null;
 
-const projectName = args.find(a => !a.startsWith("--")) ?? "puppeteer-app";
-const projectDir  = resolve(process.cwd(), projectName);
+let projectName = args.find(a => !a.startsWith("--"));
+let projectDir;
 const pkgManager  = pmExplicit || (process.env.npm_config_user_agent?.startsWith("pnpm") ? "pnpm"
                    : process.env.npm_config_user_agent?.startsWith("yarn") ? "yarn"
                    : "npm");
@@ -48,7 +49,7 @@ const skipChromiumDL  = getFlag("--skip-chromium");
 const initGit         = getFlag("--git");
 const doInstall       = !getFlag("--no-install", false);
 const withExample     = !getFlag("--no-example", false);
-const packageName     = getValue("--package-name", projectName.replace(/[^a-z0-9-_~.]/gi, "-").toLowerCase());
+let packageName;
 
 // --- templates ---
 const gitignore = `
@@ -128,6 +129,20 @@ function makePackageJSON() {
 }
 
 // --- helpers ---
+function promptForInput(question) {
+  return new Promise((resolve) => {
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stdout
+    });
+    
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
 function run(cmd, args, opts = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { stdio: "inherit", ...opts });
@@ -145,6 +160,18 @@ async function ensureDir(p) {
 }
 
 async function main() {
+  // 0) prompt for project name if not provided
+  if (!projectName) {
+    projectName = await promptForInput("📁 Enter directory name for your Puppeteer app: ");
+    if (!projectName) {
+      console.error("❌ Directory name is required.");
+      process.exit(1);
+    }
+  }
+  
+  projectDir = resolve(process.cwd(), projectName);
+  packageName = getValue("--package-name", projectName.replace(/[^a-z0-9-_~.]/gi, "-").toLowerCase());
+  
   // 1) create dir
   if (existsSync(projectDir) && existsSync(join(projectDir, "package.json"))) {
     console.error(`❌ Directory "${basename(projectDir)}" already contains a project.`);
