@@ -1,6 +1,6 @@
 {
   "name": "create-puppeteer-app",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Scaffold a Puppeteer or puppeteer-core project in seconds",
   "bin": {
     "create-puppeteer-app": "./cli.js"
